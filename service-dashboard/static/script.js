@@ -1,56 +1,74 @@
 document.addEventListener('DOMContentLoaded', () => {
-    const serviceGrid = document.getElementById('service-grid');
     const lastUpdatedElement = document.getElementById('last-updated');
     const charts = {}; // Store chart instances
+    const chartColors = {
+        onlineBorder: 'rgba(56, 161, 105, 0.7)', // Greenish
+        onlineBackground: 'rgba(56, 161, 105, 0.1)',
+        errorBorder: 'rgba(221, 107, 32, 0.7)', // Orangish
+        errorBackground: 'rgba(221, 107, 32, 0.1)',
+        offlineBorder: 'rgba(229, 62, 62, 0.7)', // Reddish
+        offlineBackground: 'rgba(229, 62, 62, 0.1)',
+    };
+    const FETCH_INTERVAL_MS = 60000; // Fetch status every 60 seconds
+    const MAX_HISTORY_POINTS = 30; // Match backend history length
 
-    // Function to generate a safe ID from service name
-    function generateId(name) {
-        return name.replace(/\s+/g, '-').replace(/[()]/g, '').toLowerCase();
-    }
-
-    // Function to update the UI for a single service
-    function updateServiceUI(name, data) {
-        const serviceId = generateId(name);
+    function updateServiceUI(serviceId, data) {
         const card = document.getElementById(`card-${serviceId}`);
-        if (!card) {
-            console.warn(`Card element not found for service ID: card-${serviceId}`);
+        const link = document.getElementById(`link-${serviceId}`);
+        // const statusIndicator = document.getElementById(`status-${serviceId}`); // We use card class now
+        const statusTextElement = document.getElementById(`status-text-${serviceId}`);
+        const chartCanvas = document.getElementById(`chart-${serviceId}`);
+
+        if (!card || !link || !statusTextElement || !chartCanvas) {
+            console.warn(`UI elements not found for service ID: ${serviceId}`);
             return;
         }
 
-        const statusIndicator = document.getElementById(`status-${serviceId}`);
-        const serviceLink = document.getElementById(`link-${serviceId}`);
-        const chartCanvas = document.getElementById(`chart-${serviceId}`);
+        // Update Link URL using the display_url from the API
+        link.href = data.display_url || '#'; // Fallback href
 
-        // Update status indicator class
-        statusIndicator.className = 'status-indicator'; // Reset classes
+        // Determine status class and text
+        let statusClass = 'status-checking';
+        let statusText = 'Checking'; // Default display text
+
+        // Simplify status text display
         if (data.status === 'online') {
-            statusIndicator.classList.add('online');
-            statusIndicator.title = 'Online';
+            statusClass = 'status-online';
+            statusText = 'Online';
         } else if (data.status.startsWith('offline')) {
-            statusIndicator.classList.add('offline');
-            statusIndicator.title = `Offline (${data.status.split('_')[1]})`;
+            statusClass = 'status-offline';
+            statusText = 'Offline'; // Simple text, details in tooltip/logs
+            // Add specifics if needed, e.g.,
+            // if (data.status.includes('timeout')) statusText = 'Timeout';
+            // else if (data.status.includes('conn_error')) statusText = 'Conn Err';
         } else if (data.status.startsWith('error')) {
-             statusIndicator.classList.add('error');
-             statusIndicator.title = `Error (${data.status.split('_')[1]})`;
-        } else {
-            statusIndicator.classList.add('checking'); // Default/checking state
-            statusIndicator.title = 'Checking';
+            statusClass = 'status-error';
+            statusText = `Error`; // Simple text
+             // Add specifics if needed, e.g.,
+             // statusText = `Error ${data.status.split('_')[1]}`;
         }
 
-        // Update link
-        serviceLink.href = data.url;
+        // Update Card Border class and Status Text
+        card.className = `service-card ${statusClass}`; // Reset classes and apply current status class
+        statusTextElement.textContent = statusText;
 
         // --- Update Chart ---
-        if (chartCanvas && data.history && data.history.length > 0) {
+        if (data.history && data.history.length > 0) {
             const ctx = chartCanvas.getContext('2d');
 
-            // Prepare chart data
-            // Map status to numerical values for the chart (e.g., 1 for online, 0 for others)
-            const chartData = data.history.map(entry => ({
-                x: luxon.DateTime.fromISO(entry[0]).valueOf(), // Use timestamp as X
-                y: entry[1] === 'online' ? 1 : 0 // Y value: 1 = online, 0 = offline/error
-            }));
+            // Map history to chart data points and store detailed status for tooltips
+            const chartDataPoints = [];
+            const statusMap = {}; // Map timestamp (ms) to detailed status string
+            data.history.forEach(entry => {
+                const timestamp = luxon.DateTime.fromISO(entry[0]).valueOf();
+                const status = entry[1];
+                let yValue = 0; // Default offline
+                if (status === 'online') yValue = 1;
+                else if (status.startsWith('error')) yValue = 0.5; // Distinguish errors visually
 
+                chartDataPoints.push({ x: timestamp, y: yValue });
+                statusMap[timestamp] = status; // Store detailed status text
+            });
 
             // Destroy previous chart instance if it exists
             if (charts[serviceId]) {
@@ -59,113 +77,140 @@ document.addEventListener('DOMContentLoaded', () => {
 
             // Create new chart
             charts[serviceId] = new Chart(ctx, {
-                type: 'line', // Use line or bar chart for history
+                type: 'line',
                 data: {
                     datasets: [{
-                        label: 'Status (1=Online, 0=Offline/Error)',
-                        data: chartData,
-                        borderColor: 'rgba(74, 144, 226, 0.8)', // Blue line
-                        backgroundColor: 'rgba(74, 144, 226, 0.2)', // Light blue fill
-                        stepped: true, // Makes it look like uptime blocks
-                        pointRadius: 0, // Hide points for cleaner look
-                        borderWidth: 2
+                        label: 'Status History',
+                        data: chartDataPoints,
+                        borderColor: (context) => {
+                            // Dynamically set color based on point value (optional, simple border is fine too)
+                            const yVal = context.raw?.y;
+                            if (yVal === 1) return chartColors.onlineBorder;
+                            if (yVal === 0.5) return chartColors.errorBorder;
+                            return chartColors.offlineBorder;
+                        },
+                         backgroundColor: (context) => {
+                            const yVal = context.raw?.y;
+                            if (yVal === 1) return chartColors.onlineBackground;
+                            if (yVal === 0.5) return chartColors.errorBackground;
+                            return chartColors.offlineBackground;
+                        },
+                        borderWidth: 1.5,
+                        pointRadius: 0,
+                        pointHitRadius: 10, // Easier hover detection
+                        fill: true,
+                        stepped: true, // Blocky uptime chart
+                        tension: 0 // Sharp corners for stepped line
                     }]
                 },
                 options: {
                     responsive: true,
-                    maintainAspectRatio: false, // Important for fixed height container
+                    maintainAspectRatio: false,
                     scales: {
                         x: {
-                            type: 'time', // Use time scale
+                            type: 'time',
+                            adapters: { date: { locale: 'en-GB' } }, // Adjust locale if needed
                             time: {
-                                unit: 'minute', // Adjust based on history length/frequency
-                                tooltipFormat: 'MMM d, yyyy HH:mm:ss ZZZZ', // Luxon format for tooltip
-                                 displayFormats: {
-                                    minute: 'HH:mm' // Display format on the axis
-                                }
+                                unit: 'minute',
+                                tooltipFormat: 'MMM d, HH:mm:ss',
+                                displayFormats: { minute: 'HH:mm' }
                             },
-                            title: {
-                                display: false, // Hide x-axis title
-                            },
+                            grid: { display: false },
                             ticks: {
-                                maxTicksLimit: 6, // Limit number of time labels
+                                display: true,
+                                maxRotation: 0,
                                 autoSkip: true,
+                                maxTicksLimit: 5 // Max 5 time labels
                             }
                         },
                         y: {
                             beginAtZero: true,
-                            max: 1.2, // Give some space above the line
+                            max: 1.2, // Give slight space above 'Online'
+                            grid: { drawBorder: false, color: '#e2e8f0' },
                             ticks: {
-                                stepSize: 1, // Only show 0 and 1
-                                callback: function(value, index, values) {
-                                    return value === 1 ? 'Online' : (value === 0 ? 'Offline' : '');
-                                }
+                                stepSize: 0.5, // Show 0, 0.5, 1
+                                callback: function(value) {
+                                    if (value === 1) return 'Online';
+                                    if (value === 0.5) return 'Error';
+                                    if (value === 0) return 'Offline';
+                                    return ''; // Hide other labels (like 1.0, 0.0)
+                                },
+                                precision: 0 // Ensure whole numbers for comparison
                             }
                         }
                     },
                     plugins: {
-                        legend: {
-                            display: false // Hide dataset label legend
-                        },
+                        legend: { display: false },
                         tooltip: {
-                            mode: 'index',
+                            enabled: true,
+                            mode: 'nearest', // Show tooltip for nearest point on hover
                             intersect: false,
+                            displayColors: false, // Hide color box in tooltip
                             callbacks: {
-                                 label: function(context) {
-                                    let label = context.dataset.label || '';
-                                    if (label) {
-                                        label += ': ';
-                                    }
-                                    const status = context.parsed.y === 1 ? 'Online' : 'Offline/Error';
-                                    label += status;
-                                    // Find original status string from history for more detail in tooltip
-                                    const timestampISO = luxon.DateTime.fromMillis(context.parsed.x).toISO();
-                                    const historyEntry = data.history.find(h => luxon.DateTime.fromISO(h[0]).valueOf() === context.parsed.x);
-                                    if (historyEntry) {
-                                         label = `${historyEntry[1].replace('_', ' ')}`; // Show detailed status like 'offline timeout'
-                                    }
-
+                                // Title: Show time
+                                title: function(tooltipItems) {
+                                     const timestamp = tooltipItems[0].parsed.x;
+                                     return luxon.DateTime.fromMillis(timestamp).toFormat('MMM d, HH:mm:ss');
+                                },
+                                // Label: Show detailed status
+                                label: function(context) {
+                                    const timestamp = context.parsed.x;
+                                    const rawStatus = statusMap[timestamp] || 'Unknown';
+                                    // Clean up status text for display
+                                    let label = rawStatus.replace(/_/g, ' ').replace(/(?:^|\s)\S/g, l => l.toUpperCase()); // Capitalize words
+                                    if (label.startsWith('Error ')) label = label.replace('Error ','Error: '); // Add colon
+                                    if (label.startsWith('Offline ')) label = label.replace('Offline ','Offline: '); // Add colon
                                     return label;
                                 }
                             }
                         }
-                    }
+                    },
+                     // Disable animations for performance if needed
+                    // animation: false
                 }
             });
+        } else {
+             // Optional: Clear chart or show message if no history
+             if (charts[serviceId]) {
+                charts[serviceId].destroy();
+                delete charts[serviceId];
+             }
+             // Could display text in canvas: ctx.fillText('No history yet', ...);
         }
     }
 
-    // Function to fetch status data from the backend
     async function fetchAndUpdateStatus() {
-        console.log("Fetching status...");
+        // console.log(`[${new Date().toLocaleTimeString()}] Fetching status...`);
         try {
-            const response = await fetch('/api/status');
+            const response = await fetch('/api/status'); // Fetch from backend API
             if (!response.ok) {
-                throw new Error(`HTTP error! status: ${response.status}`);
+                 if (response.status === 0) { // Network error likely
+                     throw new Error(`Network error (Could not reach backend)`);
+                 } else {
+                    throw new Error(`HTTP error! Status: ${response.status}`);
+                 }
             }
             const data = await response.json();
 
-            // Update UI for each service
-            for (const serviceName in data) {
-                if (data.hasOwnProperty(serviceName)) {
-                    updateServiceUI(serviceName, data[serviceName]);
+            // Update UI for each service found in the response
+            Object.keys(data).forEach(serviceId => {
+                if (data.hasOwnProperty(serviceId)) {
+                    updateServiceUI(serviceId, data[serviceId]);
                 }
-            }
+            });
 
-            // Update last updated time
-            lastUpdatedElement.textContent = `Last updated: ${new Date().toLocaleTimeString()}`;
+            // Update the "Last Updated" timestamp
+            lastUpdatedElement.textContent = `Last updated: ${luxon.DateTime.now().toFormat('HH:mm:ss')}`;
 
         } catch (error) {
             console.error("Failed to fetch status:", error);
-            lastUpdatedElement.textContent = `Error updating status: ${error.message}`;
-            // Optionally: set all indicators to an error state or show a global error message
+            lastUpdatedElement.textContent = `Update Error`; // Keep it simple
+            // Maybe add a visual indicator for the update error itself
         }
     }
 
-    // Initial fetch
+    // Initial fetch on page load
     fetchAndUpdateStatus();
-
-    // Optionally: Refresh data every 60 seconds (adjust interval as needed)
-    // The backend already checks every 5 mins, this just updates the UI without a page reload.
-    setInterval(fetchAndUpdateStatus, 60000); // 60000ms = 1 minute
+    // Set interval to fetch updates periodically
+    setInterval(fetchAndUpdateStatus, FETCH_INTERVAL_MS);
 });

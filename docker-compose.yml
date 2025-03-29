@@ -4,29 +4,32 @@ services:
   service-dashboard:
     container_name: service-dashboard
     build:
-      context: .
-      dockerfile: Dockerfile
+      context: . # Root of the repository
+      dockerfile: Dockerfile # Use the Dockerfile in the root
+    # Optionally build and push image to a registry first, then use:
+    # image: your-docker-registry/your-dashboard-image:latest
     restart: unless-stopped
     networks:
-      wg-easy_wg: 
-        ipv4_address: 10.42.42.12
+      # Connect to your existing WireGuard network
+      wg-easy_wg: # Use the actual network name as the key
+        ipv4_address: 10.42.42.12 # Assign the static IP
     volumes:
+      # Automatically create and use a named volume (useful if you add features needing persistence)
       - dashboard_data:/app/data
     environment:
-      URL_BESZEL: "https://status.niksindriksons.com"
-      URL_OPENWEBUI: "https://ai.niksindriksons.com"
-      URL_LITELLM: "https://llm.niksindriksons.com"
-      URL_N8N: "https://n8n.niksindriksons.com"
-      URL_NEXTCLOUD: "https://cloud.niksindriksons.com"
-      URL_VAULTWARDEN: "https://vault.niksindriksons.com"
-      URL_ADGUARD: "https://adguard.niksindriksons.com"
-      TZ: Europe/Amsterdam
+      # Optional: Override check URLs/ports or other settings via environment variables
+      # CHECK_URL_NEXTCLOUD: "http://10.42.42.4:8080" # Example override
+      # REQUEST_TIMEOUT_SECONDS: 15
+      TZ: Europe/Amsterdam # Set your timezone
 
 networks:
-  wg-easy_wg: 
+  # Declare the external network
+  wg-easy_wg: # Use the same key as under services.networks
     external: true
+    # IMPORTANT: Verify this is the EXACT name of your network in Portainer/Docker
     name: wg-easy_wg
 
 volumes:
+  # Declare the named volume Docker Compose will manage
   dashboard_data:
     driver: local

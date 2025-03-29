@@ -9,19 +9,14 @@ from datetime import datetime, timezone
 
 app = Flask(__name__)
 
-# --- Configuration ---
-# Use environment variables or configure directly
-# Ensure URLs start with http:// or https://
 SERVICES = [
     {"name": "Beszel (Status)", "url": os.environ.get("URL_BESZEL", "https://status.niksindriksons.com")},
     {"name": "OpenWebUI", "url": os.environ.get("URL_OPENWEBUI", "https://ai.niksindriksons.com")},
-    {"name": "LiteLLM", "url": os.environ.get("URL_LITELLM", "https://llm.niksindriksons.com")}, # Assuming it has a web endpoint to ping
+    {"name": "LiteLLM", "url": os.environ.get("URL_LITELLM", "https://llm.niksindriksons.com")}, 
     {"name": "n8n", "url": os.environ.get("URL_N8N", "https://n8n.niksindriksons.com")},
     {"name": "Nextcloud", "url": os.environ.get("URL_NEXTCLOUD", "https://cloud.niksindriksons.com")},
     {"name": "Vaultwarden", "url": os.environ.get("URL_VAULTWARDEN", "https://vault.niksindriksons.com")},
     {"name": "AdGuard Home", "url": os.environ.get("URL_ADGUARD", "https://adguard.niksindriksons.com")},
-    # Add wg-easy dashboard itself if you want to monitor it too
-    # {"name": "WireGuard Easy", "url": os.environ.get("URL_WG", "https://wg.niksindriksons.com")},
 ]
 
 # Store status and history (limited to HISTORY_LENGTH entries)
@@ -35,9 +30,7 @@ REQUEST_TIMEOUT_SECONDS = 5 # Timeout for status checks
 def check_service(service_name, url):
     """Checks a single service and updates its status and history."""
     try:
-        # Use verify=False if using self-signed certs *within* the private network, but prefer proper certs via NPM
-        # Add headers if needed, e.g., User-Agent
-        response = requests.get(url, timeout=REQUEST_TIMEOUT_SECONDS, allow_redirects=True, verify=True) # Set verify=False ONLY if necessary and understand the risk
+        response = requests.get(url, timeout=REQUEST_TIMEOUT_SECONDS, allow_redirects=True, verify=False) 
         timestamp = datetime.now(timezone.utc).isoformat()
 
         # Consider any 2xx or 3xx status code as "online"
@@ -110,11 +103,5 @@ if __name__ == '__main__':
     scheduler_thread = threading.Thread(target=run_scheduler, daemon=True)
     scheduler_thread.start()
 
-    # Start Flask server (use Gunicorn in production/Docker)
-    # For local testing: app.run(debug=True, host='0.0.0.0', port=5000)
-    # Gunicorn will run this:
     print("Starting Flask server...")
-    # Note: Gunicorn is typically used via command line, not within the script like this for production.
-    # The Dockerfile CMD/ENTRYPOINT will handle running Gunicorn.
-    # If running directly with `python app.py` for testing, use:
     app.run(host='0.0.0.0', port=5000)

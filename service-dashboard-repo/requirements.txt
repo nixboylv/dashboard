@@ -1,4 +1,4 @@
 Flask
 requests
 schedule
-gunicorn # Recommended for running Flask in Docker
+gunicorn

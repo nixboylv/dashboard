@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Service Dashboard</title>
+    <title>Dashboard</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
     <!-- Include Chart.js -->
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
@@ -14,11 +14,10 @@
 </head>
 <body>
     <header>
-        <h1>My Services Status</h1>
+        <h1>Welcome, Niks</h1>
         <div class="last-updated" id="last-updated">Last updated: never</div>
     </header>
     <main id="service-grid">
-        <!-- Service cards will be populated by JavaScript -->
         {% for service in services %}
         <div class="service-card" id="card-{{ service.name | replace(' ', '-') | replace('(', '') | replace(')', '') | lower }}">
             <div class="card-header">
@@ -35,7 +34,7 @@
         {% endfor %}
     </main>
     <footer>
-        <p>Simple Status Dashboard</p>
+        <p>Dashboard</p>
     </footer>
     <script src="{{ url_for('static', filename='script.js') }}"></script>
 </body>

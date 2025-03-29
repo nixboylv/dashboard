@@ -8,8 +8,7 @@ services:
       dockerfile: Dockerfile
     restart: unless-stopped
     networks:
-      # Connect directly using the actual network name as the key
-      wg-easy_wg: # <--- Use actual name here
+      wg-easy_wg: 
         ipv4_address: 10.42.42.12
     volumes:
       - dashboard_data:/app/data
@@ -24,11 +23,8 @@ services:
       TZ: Europe/Amsterdam
 
 networks:
-  # Declare the external network using its actual name as the key
-  wg-easy_wg: # <--- Use actual name here
+  wg-easy_wg: 
     external: true
-    # Explicitly naming it is still good practice for clarity,
-    # even if it matches the key.
     name: wg-easy_wg
 
 volumes:

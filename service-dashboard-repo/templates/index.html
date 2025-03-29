@@ -1,0 +1,42 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Service Dashboard</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <!-- Include Chart.js -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+    <!-- Include Luxon for better date handling with Chart.js -->
+    <script src="https://cdn.jsdelivr.net/npm/luxon@3.4.4/build/global/luxon.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-luxon@1.3.1/dist/chartjs-adapter-luxon.umd.min.js"></script>
+
+</head>
+<body>
+    <header>
+        <h1>My Services Status</h1>
+        <div class="last-updated" id="last-updated">Last updated: never</div>
+    </header>
+    <main id="service-grid">
+        <!-- Service cards will be populated by JavaScript -->
+        {% for service in services %}
+        <div class="service-card" id="card-{{ service.name | replace(' ', '-') | replace('(', '') | replace(')', '') | lower }}">
+            <div class="card-header">
+                <span class="status-indicator" id="status-{{ service.name | replace(' ', '-') | replace('(', '') | replace(')', '') | lower }}"></span>
+                <h2 class="service-name">{{ service.name }}</h2>
+            </div>
+            <div class="card-body">
+                <a href="#" target="_blank" class="service-link" id="link-{{ service.name | replace(' ', '-') | replace('(', '') | replace(')', '') | lower }}">Go to Service</a>
+                <div class="chart-container">
+                    <canvas id="chart-{{ service.name | replace(' ', '-') | replace('(', '') | replace(')', '') | lower }}"></canvas>
+                </div>
+            </div>
+        </div>
+        {% endfor %}
+    </main>
+    <footer>
+        <p>Simple Status Dashboard</p>
+    </footer>
+    <script src="{{ url_for('static', filename='script.js') }}"></script>
+</body>
+</html>

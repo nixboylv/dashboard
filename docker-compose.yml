@@ -1,0 +1,36 @@
+version: '3.8'
+
+services:
+  service-dashboard:
+    container_name: service-dashboard
+    build:
+      context: .
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    networks:
+      # Connect directly using the actual network name as the key
+      wg-easy_wg: # <--- Use actual name here
+        ipv4_address: 10.42.42.12
+    volumes:
+      - dashboard_data:/app/data
+    environment:
+      URL_BESZEL: "https://status.niksindriksons.com"
+      URL_OPENWEBUI: "https://ai.niksindriksons.com"
+      URL_LITELLM: "https://llm.niksindriksons.com"
+      URL_N8N: "https://n8n.niksindriksons.com"
+      URL_NEXTCLOUD: "https://cloud.niksindriksons.com"
+      URL_VAULTWARDEN: "https://vault.niksindriksons.com"
+      URL_ADGUARD: "https://adguard.niksindriksons.com"
+      TZ: Europe/Amsterdam
+
+networks:
+  # Declare the external network using its actual name as the key
+  wg-easy_wg: # <--- Use actual name here
+    external: true
+    # Explicitly naming it is still good practice for clarity,
+    # even if it matches the key.
+    name: wg-easy_wg
+
+volumes:
+  dashboard_data:
+    driver: local

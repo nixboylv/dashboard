@@ -25,4 +25,4 @@ EXPOSE 5000
 
 # Command to run the application using Gunicorn
 # Adjust workers based on your server resources (2-4 is often a good starting point)
-CMD ["gunicorn", "--workers", "3", "--bind", "0.0.0.0:5000", "app:app", "--log-level", "info"]
+CMD ["gunicorn", "--workers", "3", "--bind", "0.0.0.0:5000", "--log-level", "info", "--preload", "app:app"]
